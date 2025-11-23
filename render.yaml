@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: prompt-registry
+    runtime: go
+    plan: free
+    region: oregon
+    branch: main
+
+    # Auto-deploy on push to main
+    autoDeploy: true
+
+    # Build configuration
+    buildCommand: |
+      # Run tests BEFORE building - deployment fails if tests fail
+      go test ./... -v
+      go build -o bin/prompt-registry ./cmd/server
+
+    # Start command
+    startCommand: ./bin/prompt-registry
+
+    # Environment variables
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DATABASE_PATH
+        value: /var/data/prompts.db
+      - key: LOG_FORMAT
+        value: json
+      - key: LOG_LEVEL
+        value: info
+      - key: BASE_URL
+        sync: false
+
+    # Persistent disk for SQLite database
+    disk:
+      name: prompt-data
+      mountPath: /var/data
+      sizeGB: 1
+
+    # Health check endpoint
+    healthCheckPath: /health
+
+    # Resource allocation (free tier)
+    numInstances: 1

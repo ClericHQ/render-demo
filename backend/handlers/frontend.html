@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Registry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-200">
+        <div class="max-w-6xl mx-auto px-6 py-4">
+            <button onclick="navigate('/')" class="text-base font-semibold text-gray-900 hover:text-gray-600 transition-colors">
+                Prompt Registry
+            </button>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto">
+        <!-- View: List -->
+        <div id="view-list" class="view">
+            <div class="px-6 py-12">
+                <!-- Empty State -->
+                <div id="emptyState" class="text-center py-24 hidden">
+                    <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2">No prompts yet</h2>
+                    <p class="text-sm text-gray-600 mb-6">Create your first prompt to get started</p>
+                    <button onclick="navigate('/new')" class="inline-flex items-center px-4 py-2 rounded-md bg-gray-900 text-sm font-medium text-white hover:bg-gray-800 transition-colors">
+                        New Prompt
+                    </button>
+                </div>
+
+                <!-- Prompts Grid -->
+                <div id="promptsGrid" class="hidden">
+                    <div class="flex items-center justify-between mb-6">
+                        <h1 class="text-xl font-semibold text-gray-900">Prompts</h1>
+                        <button onclick="navigate('/new')" class="inline-flex items-center px-4 py-2 rounded-md bg-gray-900 text-sm font-medium text-white hover:bg-gray-800 transition-colors">
+                            New Prompt
+                        </button>
+                    </div>
+                    <div id="promptsList" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Create -->
+        <div id="view-create" class="view hidden">
+            <div class="min-h-screen flex flex-col">
+                <!-- Header -->
+                <div class="bg-white border-b border-gray-200 px-6 py-4">
+                    <div class="max-w-6xl mx-auto flex items-center justify-between">
+                        <h1 class="text-base font-semibold text-gray-900">New Prompt</h1>
+                        <div class="flex gap-2">
+                            <button onclick="navigate('/')" class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                                Cancel
+                            </button>
+                            <button onclick="createPrompt()" class="px-3 py-1.5 rounded-md bg-gray-900 text-sm font-medium text-white hover:bg-gray-800 transition-colors">
+                                Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="flex-1 flex overflow-hidden bg-white">
+                    <!-- Main Content -->
+                    <div class="flex-1 flex flex-col max-w-4xl mx-auto w-full p-8">
+                        <textarea id="createContent" placeholder="Write your prompt here..."
+                            class="flex-1 text-base border-0 focus:outline-none focus:ring-0 resize-none font-mono text-gray-900 placeholder-gray-400"
+                            autofocus></textarea>
+                    </div>
+
+                    <!-- Metadata Sidebar -->
+                    <div class="w-72 border-l border-gray-100 bg-gray-50/50 p-6 space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1.5">Title</label>
+                            <input type="text" id="createTitle" required
+                                class="w-full px-3 py-2 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
+                            <textarea id="createDescription" rows="2"
+                                class="w-full px-3 py-2 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1.5">Slug</label>
+                            <input type="text" id="createSlug"
+                                class="w-full px-3 py-2 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                placeholder="auto-generated">
+                            <p class="text-xs text-gray-500 mt-1.5">Optional</p>
+                        </div>
+                        <div id="createError" class="text-xs text-red-600 hidden"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Prompt Detail -->
+        <div id="view-detail" class="view hidden">
+            <div class="min-h-screen flex flex-col">
+                <!-- Header -->
+                <div class="bg-white border-b border-gray-200 px-6 py-4">
+                    <div class="max-w-6xl mx-auto">
+                        <button onclick="navigate('/')" class="text-xs text-gray-500 hover:text-gray-700 mb-2 inline-flex items-center">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                            Back
+                        </button>
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h1 id="detailTitle" class="text-base font-semibold text-gray-900"></h1>
+                                <p id="detailDesc" class="text-xs text-gray-500 mt-0.5"></p>
+                            </div>
+                            <button id="editModeBtn" onclick="toggleEditMode()" class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                                Edit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="flex-1 flex overflow-hidden bg-white">
+                    <!-- Main Content -->
+                    <div class="flex-1 flex flex-col">
+                        <!-- View Mode -->
+                        <div id="detailViewMode" class="flex-1 max-w-4xl mx-auto w-full p-8 overflow-auto">
+                            <div class="mb-3">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                    Version <span id="detailVersion" class="ml-1"></span>
+                                </span>
+                            </div>
+                            <pre id="detailContent" class="text-base text-gray-900 whitespace-pre-wrap font-mono leading-relaxed"></pre>
+                        </div>
+
+                        <!-- Edit Mode -->
+                        <div id="detailEditMode" class="hidden flex-1 flex flex-col">
+                            <div class="flex-1 max-w-4xl mx-auto w-full p-8">
+                                <textarea id="editContent"
+                                    class="w-full h-full text-base border-0 focus:outline-none focus:ring-0 resize-none font-mono leading-relaxed text-gray-900"></textarea>
+                            </div>
+
+                            <!-- Diff Preview -->
+                            <div class="border-t border-gray-100 bg-gray-50/50 px-8 py-4">
+                                <div class="max-w-4xl mx-auto">
+                                    <div class="mb-3 flex items-center justify-between">
+                                        <h3 class="text-xs font-medium text-gray-700">Changes</h3>
+                                        <div class="flex gap-2">
+                                            <button onclick="toggleEditMode()" class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 hover:bg-white transition-colors">
+                                                Cancel
+                                            </button>
+                                            <button onclick="saveNewVersion()" class="px-3 py-1.5 rounded-md bg-gray-900 text-sm font-medium text-white hover:bg-gray-800 transition-colors">
+                                                Save Version
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="diffPreview" class="text-xs bg-white border border-gray-200 rounded-md p-3 font-mono max-h-40 overflow-auto leading-relaxed"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Versions Sidebar -->
+                    <div class="w-56 border-l border-gray-100 bg-gray-50/50">
+                        <div class="px-4 py-3 border-b border-gray-100">
+                            <h3 class="text-xs font-medium text-gray-700">Versions</h3>
+                        </div>
+                        <div id="detailVersionsList" class="overflow-auto" style="max-height: calc(100vh - 180px)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentSlug = null;
+        let currentContent = '';
+        let isEditMode = false;
+
+        // Router
+        function getRoute() {
+            const path = window.location.hash.slice(1) || '/';
+            return path;
+        }
+
+        function navigate(path) {
+            window.location.hash = path;
+        }
+
+        function handleRoute() {
+            const route = getRoute();
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+
+            if (route === '/' || route === '') {
+                document.getElementById('view-list').classList.remove('hidden');
+                loadPrompts();
+            } else if (route === '/new') {
+                document.getElementById('view-create').classList.remove('hidden');
+                document.getElementById('createContent').focus();
+            } else if (route.startsWith('/prompts/')) {
+                const slug = route.replace('/prompts/', '').split('/')[0];
+                document.getElementById('view-detail').classList.remove('hidden');
+                loadPromptDetail(slug);
+            }
+        }
+
+        window.addEventListener('hashchange', handleRoute);
+        window.addEventListener('load', handleRoute);
+
+        // Utilities
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return 'just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+
+        // List view
+        async function loadPrompts() {
+            try {
+                const response = await fetch(`${API_BASE}/prompts`);
+                const prompts = await response.json();
+
+                if (prompts.length === 0) {
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    document.getElementById('promptsGrid').classList.add('hidden');
+                } else {
+                    document.getElementById('emptyState').classList.add('hidden');
+                    document.getElementById('promptsGrid').classList.remove('hidden');
+
+                    const list = document.getElementById('promptsList');
+                    list.innerHTML = prompts.map(p => `
+                        <div onclick="navigate('/prompts/${p.slug}')"
+                            class="group p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm cursor-pointer transition-all">
+                            <div class="flex items-start justify-between mb-1">
+                                <h3 class="font-medium text-sm text-gray-900 group-hover:text-gray-700">${escapeHtml(p.title)}</h3>
+                                <span class="text-xs text-gray-400 ml-2">v${p.current_version}</span>
+                            </div>
+                            ${p.description ? `<p class="text-sm text-gray-600 mb-2 line-clamp-1">${escapeHtml(p.description)}</p>` : ''}
+                            <div class="text-xs text-gray-400">${formatDate(p.updated_at)}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Failed to load prompts:', error);
+            }
+        }
+
+        // Create view
+        async function createPrompt() {
+            const data = {
+                title: document.getElementById('createTitle').value,
+                slug: document.getElementById('createSlug').value,
+                description: document.getElementById('createDescription').value,
+                content: document.getElementById('createContent').value,
+            };
+
+            if (!data.title || !data.content) {
+                showError('createError', 'Title and content are required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    showError('createError', error.error || 'Failed to create prompt');
+                    return;
+                }
+
+                const result = await response.json();
+                document.getElementById('createTitle').value = '';
+                document.getElementById('createSlug').value = '';
+                document.getElementById('createDescription').value = '';
+                document.getElementById('createContent').value = '';
+                navigate(`/prompts/${result.slug}`);
+            } catch (error) {
+                showError('createError', 'Failed to create prompt: ' + error.message);
+            }
+        }
+
+        // Detail view
+        async function loadPromptDetail(slug) {
+            currentSlug = slug;
+            isEditMode = false;
+
+            try {
+                const [promptRes, versionsRes] = await Promise.all([
+                    fetch(`${API_BASE}/prompts/${slug}`),
+                    fetch(`${API_BASE}/prompts/${slug}/versions`)
+                ]);
+
+                if (!promptRes.ok) {
+                    navigate('/');
+                    return;
+                }
+
+                const prompt = await promptRes.json();
+                const versions = await versionsRes.json();
+
+                document.getElementById('detailTitle').textContent = prompt.title;
+                document.getElementById('detailDesc').textContent = prompt.description || prompt.slug;
+                document.getElementById('detailVersion').textContent = prompt.current_version.version_number;
+                document.getElementById('detailContent').textContent = prompt.current_version.content;
+                currentContent = prompt.current_version.content;
+
+                const versionsList = document.getElementById('detailVersionsList');
+                versionsList.innerHTML = versions.reverse().map((v, i) => `
+                    <div onclick="loadVersion('${slug}', ${v.version_number})"
+                        class="px-4 py-2.5 border-b border-gray-100 cursor-pointer hover:bg-white transition-colors ${i === 0 ? 'bg-white' : ''}">
+                        <div class="flex items-center justify-between mb-0.5">
+                            <span class="text-xs font-medium text-gray-900">v${v.version_number}</span>
+                            ${i === 0 ? '<span class="text-xs text-gray-400">Current</span>' : ''}
+                        </div>
+                        <div class="text-xs text-gray-500">${formatDate(v.created_at)}</div>
+                    </div>
+                `).join('');
+
+                document.getElementById('detailViewMode').classList.remove('hidden');
+                document.getElementById('detailEditMode').classList.add('hidden');
+                document.getElementById('editModeBtn').textContent = 'Edit';
+            } catch (error) {
+                console.error('Failed to load prompt:', error);
+                navigate('/');
+            }
+        }
+
+        async function loadVersion(slug, versionNum) {
+            try {
+                const response = await fetch(`${API_BASE}/prompts/${slug}/versions/${versionNum}`);
+                const version = await response.json();
+                document.getElementById('detailContent').textContent = version.content;
+                document.getElementById('detailVersion').textContent = versionNum;
+                if (versionNum === parseInt(document.getElementById('detailVersion').textContent)) {
+                    currentContent = version.content;
+                }
+            } catch (error) {
+                console.error('Failed to load version:', error);
+            }
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+
+            if (isEditMode) {
+                document.getElementById('detailViewMode').classList.add('hidden');
+                document.getElementById('detailEditMode').classList.remove('hidden');
+                document.getElementById('editContent').value = currentContent;
+                document.getElementById('editModeBtn').textContent = 'Cancel';
+                updateDiff();
+                document.getElementById('editContent').addEventListener('input', updateDiff);
+            } else {
+                document.getElementById('detailViewMode').classList.remove('hidden');
+                document.getElementById('detailEditMode').classList.add('hidden');
+                document.getElementById('editModeBtn').textContent = 'Edit';
+            }
+        }
+
+        function updateDiff() {
+            const oldContent = currentContent;
+            const newContent = document.getElementById('editContent').value;
+            const oldLines = oldContent.split('\n');
+            const newLines = newContent.split('\n');
+
+            let diff = '';
+            for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
+                if (oldLines[i] !== newLines[i]) {
+                    if (oldLines[i] !== undefined) {
+                        diff += `<div class="text-red-600">- ${escapeHtml(oldLines[i]) || '(empty)'}</div>`;
+                    }
+                    if (newLines[i] !== undefined) {
+                        diff += `<div class="text-green-600">+ ${escapeHtml(newLines[i]) || '(empty)'}</div>`;
+                    }
+                }
+            }
+
+            document.getElementById('diffPreview').innerHTML = diff || '<div class="text-gray-500">No changes</div>';
+        }
+
+        async function saveNewVersion() {
+            const content = document.getElementById('editContent').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts/${currentSlug}/versions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                });
+
+                if (!response.ok) throw new Error('Failed to save');
+
+                toggleEditMode();
+                loadPromptDetail(currentSlug);
+            } catch (error) {
+                alert('Failed to save: ' + error.message);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        setInterval(() => {
+            if (getRoute() === '/' || getRoute() === '') {
+                loadPrompts();
+            }
+        }, 15000);
+    </script>
+</body>
+</html>
