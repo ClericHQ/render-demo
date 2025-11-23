@@ -3,7 +3,7 @@ services:
   - type: web
     name: prompt-registry
     runtime: go
-    plan: free
+    plan: starter
     region: oregon
     branch: main
 
@@ -18,14 +18,18 @@ services:
     # Start command
     startCommand: ./bin/prompt-registry
 
+    # Persistent disk for SQLite database
+    disk:
+      name: prompt-registry-data
+      mountPath: /data
+      sizeGB: 1
+
     # Environment variables
     envVars:
       - key: PORT
         value: 8080
       - key: DATABASE_PATH
-        fromDatabase:
-          name: prompt-registry-db
-          property: connectionString
+        value: /data/prompts.db
       - key: LOG_FORMAT
         value: json
       - key: LOG_LEVEL
@@ -34,11 +38,5 @@ services:
     # Health check endpoint
     healthCheckPath: /health
 
-    # Resource allocation (free tier)
+    # Resource allocation
     numInstances: 1
-
-databases:
-  - name: prompt-registry-db
-    databaseName: prompt_registry
-    region: oregon
-    plan: free
