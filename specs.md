@@ -10,17 +10,18 @@ Create a minimal Go Prompt Registry following Test-Driven Development principles
 ## Project Structure
 
 - `/cmd/server/main.go` – Application entry point
-- `/backend/store/store.go` – Database interface and SQLite implementation
+- `/backend/store/store.go` – SQLite database implementation
 - `/backend/handlers/handlers.go` – HTTP handlers with middleware
+- `/backend/handlers/frontend.html` – Single-page frontend embedded in Go binary
 - `/backend/handlers/metrics.go` – Prometheus metrics tracking
 - `/backend/models/models.go` – Data types
-- `/web/index.html` – Single-page frontend (no build step)
 - `/tests/e2e_test.go` – Integration tests
 - `/README.md` – Essential documentation
 - `/Makefile` – Simple development commands
 - `/go.mod` – Module definition
+- `/render.yaml` – Render deployment configuration
 
-Technology Stack: Go 1.25+, standard library HTTP server, SQLite (`mattn/go-sqlite3`)
+Technology Stack: Go 1.25.0, standard library HTTP server, SQLite (`mattn/go-sqlite3`)
 
 ## README Requirements
 
@@ -127,10 +128,8 @@ type CreatePromptVersionInput struct {
 ### 1.2 Store Interface (for tests)
 
 **Database Support:**
-- SQLite for local development and tests (`:memory:` for tests, `./data/prompts.db` for local)
-- PostgreSQL for production (Render provides free tier PostgreSQL)
-- Store layer automatically detects database type from connection string
-- Uses parameterized queries compatible with both databases
+- SQLite for all environments (`:memory:` for tests, `./data/prompts.db` for local, persistent disk for production)
+- Simple, reliable, no external database dependencies
 
 In tests, assume the following interface in `backend/store`:
 
@@ -356,7 +355,6 @@ Configuration (environment variables with defaults):
 
 - `PORT` (default: 8080)
 - `DATABASE_PATH` (default: `./data/prompts.db`)
-- `BASE_URL` (default: `http://localhost:8080`)
 - `LOG_FORMAT` (default: `text`) - Options: `text`, `json`
 - `LOG_LEVEL` (default: `info`) - Options: `debug`, `info`, `warn`, `error`
 
@@ -365,7 +363,7 @@ Requirements:
 - Create `./data` directory if needed.
 - Initialize SQLite database at `DATABASE_PATH`.
 - Initialize store and handlers.
-- Serve static frontend (`index.html`) at root path `/` from `/web` directory.
+- Serve embedded frontend (`backend/handlers/frontend.html`) at all GET requests via catch-all route.
 - Mount API routes and system routes (`/api/...`, `/health`, `/metrics`).
 - Use `http.Server` with graceful shutdown on SIGINT/SIGTERM.
 - Log startup info (port, database path).
@@ -506,7 +504,7 @@ Implement `GET /health` endpoint:
 
 ## Step 6: Frontend (Kaizen Philosophy)
 
-Create `web/index.html` – single file, no build step.
+Create `backend/handlers/frontend.html` – single file embedded in Go binary, no build step.
 
 Design Philosophy: View-based navigation where each screen does one thing well. Clean, minimal, focused on content.
 
@@ -516,11 +514,13 @@ Design Philosophy: View-based navigation where each screen does one thing well. 
    - Black text on white/gray-50 background.
    - Gray accents only (Tailwind gray-50, gray-200, gray-300, gray-500, gray-900).
    - No other colors.
+   - Header includes subtle "demo by Cleric" credit with link to https://cleric.ai
 
-2. **URL Routing (Hash-based)**
-   - `/` or `/#/` – List view (homepage)
-   - `/#/new` – Create prompt view
-   - `/#/prompts/{slug}` – Detail/edit view
+2. **URL Routing (History API)**
+   - `/` – List view (homepage)
+   - `/new` – Create prompt view
+   - `/prompts/{slug}` – Detail/edit view
+   - Clean URLs without hash fragments
    - Each view has shareable URL
 
 3. **Views**
@@ -531,11 +531,11 @@ Design Philosophy: View-based navigation where each screen does one thing well. 
 
 4. **Technology**
    - Tailwind CSS via CDN
-   - Inline JavaScript with hash-based router
+   - Vanilla JavaScript with History API router
    - Embedded in Go binary via `//go:embed`
 
 5. **JavaScript Functionality**
-   - Hash-based router handles navigation
+   - History API router (pushState/popstate) handles navigation
    - List view: fetch prompts, show empty state if needed
    - Create view: POST prompt, navigate to detail on success
    - Detail view: fetch prompt + versions in parallel
@@ -550,7 +550,7 @@ Design Philosophy: View-based navigation where each screen does one thing well. 
    - Clean borders, subtle hover states
    - Responsive design
 
-Test: Open http://localhost:8080, create prompt, verify URL changes, share direct link `/#/prompts/slug`, test edit mode with diff preview.
+Test: Open http://localhost:8080, create prompt, verify clean URLs, share direct link `/prompts/slug`, test edit mode with diff preview.
 
 ## API Endpoints Summary
 
@@ -576,11 +576,12 @@ Test: Open http://localhost:8080, create prompt, verify URL changes, share direc
 4. **Standard Library**
    - Use Go standard library (`net/http`, `http.ServeMux`, `httptest`) and minimal dependencies.
 5. **View-Based Frontend**
-   - Clean view-based navigation with hash routing
+   - Clean view-based navigation with History API (clean URLs without hash)
    - Each view does one thing well
    - Shareable URLs for individual prompts
    - Content-first design, minimal chrome
    - Black/white/gray colors only
+   - Subtle "demo by Cleric" branding in header
 6. **Structured Logging & Metrics**
    - Use `log/slog` for all logging with configurable format (text/json) and level
    - Log every HTTP request with method, path, status, duration_ms
@@ -589,29 +590,24 @@ Test: Open http://localhost:8080, create prompt, verify URL changes, share direc
    - Export metrics at `/metrics` in Prometheus text format
    - Health check at `/health` verifies database connectivity
 7. **Single-File Frontend**
-   - No frontend build step; everything in `web/index.html`
+   - No frontend build step; everything in `backend/handlers/frontend.html`
    - Embedded in binary via `//go:embed`
+   - Vanilla JavaScript, no frameworks or build tools
 
 ## Step 7: Render Deployment (GitOps)
 
 ### 7.1 render.yaml Configuration
 
-Create `render.yaml` in project root for automated Render deployment with PostgreSQL database.
+Create `render.yaml` in project root for automated Render deployment with SQLite on persistent disk.
 
 **Service Configuration:**
 ```yaml
 services:
-  # PostgreSQL database (free tier)
-  - type: pserv
-    name: prompt-registry-db
-    plan: free
-    region: oregon
-
   # Web service
   - type: web
     name: prompt-registry
     runtime: go
-    plan: free
+    plan: starter  # Required for persistent disk support
     region: oregon
     branch: main
     autoDeploy: true
@@ -630,21 +626,25 @@ buildCommand: |
 startCommand: ./bin/prompt-registry
 ```
 
+**Persistent Disk (for SQLite database):**
+```yaml
+disk:
+  name: prompt-registry-data
+  mountPath: /data
+  sizeGB: 1
+```
+
 **Environment Variables:**
 ```yaml
 envVars:
   - key: PORT
     value: 8080
   - key: DATABASE_PATH
-    fromDatabase:
-      name: prompt-registry-db
-      property: connectionString
+    value: /data/prompts.db  # Uses persistent disk mount
   - key: LOG_FORMAT
     value: json
   - key: LOG_LEVEL
     value: info
-  - key: BASE_URL
-    sync: false  # Set via Render dashboard
 ```
 
 **Health Check:**
@@ -670,11 +670,11 @@ numInstances: 1
 - Failing health check prevents deployment from going live
 
 **Database:**
-- PostgreSQL database (Render free tier includes PostgreSQL)
-- Connection string automatically injected as `DATABASE_PATH`
+- SQLite with persistent disk (requires starter plan or higher)
+- Database file stored at `/data/prompts.db` on persistent disk
 - Data persists across deployments and restarts
 - Schema created automatically by application on first run
-- SQLite used for local development and testing (faster, simpler)
+- Same database technology for local, test, and production (simpler, more consistent)
 
 **Logging:**
 - Production uses JSON format (`LOG_FORMAT=json`)
@@ -739,7 +739,7 @@ curl http://localhost:8080/health
 # Should return: {"status":"healthy","database":"connected"}
 ```
 
-**Test with production environment variables:**
+**Test with production-like environment variables:**
 ```bash
 PORT=8080 \
 DATABASE_PATH=/tmp/test-prompts.db \
