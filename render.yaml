@@ -30,8 +30,6 @@ services:
         value: json
       - key: LOG_LEVEL
         value: info
-      - key: BASE_URL
-        sync: false
 
     # Health check endpoint
     healthCheckPath: /health
