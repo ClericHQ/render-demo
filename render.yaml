@@ -1,10 +1,4 @@
 services:
-  # PostgreSQL database (free tier)
-  - type: pserv
-    name: prompt-registry-db
-    plan: free
-    region: oregon
-
   # Web service
   - type: web
     name: prompt-registry
@@ -16,10 +10,8 @@ services:
     # Auto-deploy on push to main
     autoDeploy: true
 
-    # Build configuration with PostgreSQL testing
+    # Build configuration with testing
     buildCommand: |
-      # Run tests with PostgreSQL before building
-      # Tests will use in-memory SQLite, but we verify PostgreSQL driver loads
       go test ./... -v
       go build -o bin/prompt-registry ./cmd/server
 
@@ -46,3 +38,9 @@ services:
 
     # Resource allocation (free tier)
     numInstances: 1
+
+databases:
+  - name: prompt-registry-db
+    databaseName: prompt_registry
+    region: oregon
+    plan: free
