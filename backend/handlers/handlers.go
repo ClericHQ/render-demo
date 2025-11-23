@@ -37,9 +37,6 @@ func New(s store.Store, logger *slog.Logger) *Handler {
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 
-	// Serve frontend at root
-	mux.HandleFunc("GET /{$}", h.handleFrontend)
-
 	// API routes
 	mux.HandleFunc("POST /api/prompts", h.handleCreatePrompt)
 	mux.HandleFunc("GET /api/prompts", h.handleListPrompts)
@@ -51,6 +48,9 @@ func (h *Handler) Routes() http.Handler {
 	// System routes
 	mux.HandleFunc("GET /health", h.handleHealth)
 	mux.HandleFunc("GET /metrics", h.handleMetrics)
+
+	// Catch-all: Serve frontend for all other GET requests (client-side routing)
+	mux.HandleFunc("GET /", h.handleFrontend)
 
 	// Apply middleware
 	var handler http.Handler = mux

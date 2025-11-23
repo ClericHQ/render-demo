@@ -184,12 +184,12 @@
 
         // Router
         function getRoute() {
-            const path = window.location.hash.slice(1) || '/';
-            return path;
+            return window.location.pathname;
         }
 
         function navigate(path) {
-            window.location.hash = path;
+            window.history.pushState(null, '', path);
+            handleRoute();
         }
 
         function handleRoute() {
@@ -209,7 +209,7 @@
             }
         }
 
-        window.addEventListener('hashchange', handleRoute);
+        window.addEventListener('popstate', handleRoute);
         window.addEventListener('load', handleRoute);
 
         // Utilities
