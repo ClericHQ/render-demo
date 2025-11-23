@@ -327,7 +327,7 @@ The application is configured for automatic deployment to Render via `render.yam
 
 - **Pre-deploy Testing:** Tests run before build - deployment fails if any test fails
 - **Health Checks:** `/health` endpoint verifies service is running and database is connected
-- **Persistent Storage:** SQLite database stored on 1GB persistent disk at `/var/data/prompts.db`
+- **PostgreSQL Database:** Free-tier PostgreSQL database with persistent storage
 - **Auto-deploy:** Pushes to `main` branch trigger automatic deployment
 - **JSON Logging:** Production uses JSON format for structured log aggregation
 
@@ -335,10 +335,18 @@ The application is configured for automatic deployment to Render via `render.yam
 
 The service uses these environment variables in production:
 - `PORT=8080` - Render's standard web port
-- `DATABASE_PATH=/var/data/prompts.db` - Persistent disk mount
+- `DATABASE_PATH` - PostgreSQL connection string (auto-injected from Render database)
 - `LOG_FORMAT=json` - Structured logging for production
 - `LOG_LEVEL=info` - Standard production logging level
 - `BASE_URL` - Set via Render dashboard (e.g., `https://prompt-registry.onrender.com`)
+
+**Database:**
+
+- **Production**: PostgreSQL (Render free tier includes PostgreSQL database)
+- **Development**: SQLite (faster, simpler local development)
+- **Tests**: SQLite in-memory (`:memory:`) for speed
+
+The application automatically detects the database type from the connection string and uses appropriate SQL syntax.
 
 **Accessing Logs:**
 
@@ -360,7 +368,7 @@ The service uses these environment variables in production:
 
 **Database Persistence:**
 
-SQLite database is stored on a 1GB persistent disk mounted at `/var/data`. Data persists across deployments and restarts. Database file is automatically created on first run.
+PostgreSQL database is provided by Render's free tier. Data persists across deployments and restarts. Schema is automatically created on first run. Connection string is automatically injected as `DATABASE_PATH` environment variable.
 
 **Monitoring:**
 

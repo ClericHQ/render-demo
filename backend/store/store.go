@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/shahram/prompt-registry/backend/models"
 )
@@ -24,25 +25,58 @@ type Store interface {
 	Close() error
 }
 
-// SQLiteStore implements the Store interface using SQLite
+// SQLiteStore implements the Store interface using SQLite or PostgreSQL
 type SQLiteStore struct {
 	db     *sql.DB
 	logger *slog.Logger
+	dbType string // "sqlite3" or "postgres"
+}
+
+// p builds a parameterized placeholder for the database ($1, $2... for postgres, ? for sqlite)
+func (s *SQLiteStore) p(query string) string {
+	if s.dbType != "postgres" {
+		return query
+	}
+	// Convert ? to $1, $2, $3...
+	result := query
+	paramNum := 1
+	for strings.Contains(result, "?") {
+		result = strings.Replace(result, "?", fmt.Sprintf("$%d", paramNum), 1)
+		paramNum++
+	}
+	return result
 }
 
 // New creates a new SQLiteStore and initializes the database
+// Supports both SQLite (dbPath like "sqlite3://path/to/db" or just "path/to/db")
+// and PostgreSQL (dbPath like "postgres://user:pass@host/dbname")
 func New(dbPath string) (*SQLiteStore, error) {
 	logger := slog.Default()
 
-	db, err := sql.Open("sqlite3", dbPath)
+	var db *sql.DB
+	var err error
+	var dbType string
+
+	// Detect database type from connection string
+	if strings.HasPrefix(dbPath, "postgres://") || strings.HasPrefix(dbPath, "postgresql://") {
+		dbType = "postgres"
+		db, err = sql.Open("postgres", dbPath)
+	} else {
+		dbType = "sqlite3"
+		// Remove sqlite3:// prefix if present
+		cleanPath := strings.TrimPrefix(dbPath, "sqlite3://")
+		db, err = sql.Open("sqlite3", cleanPath)
+	}
+
 	if err != nil {
-		logger.Error("failed to open database", "error", err, "path", dbPath)
+		logger.Error("failed to open database", "error", err, "path", dbPath, "type", dbType)
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	store := &SQLiteStore{
 		db:     db,
 		logger: logger,
+		dbType: dbType,
 	}
 
 	if err := store.initSchema(); err != nil {
@@ -50,33 +84,59 @@ func New(dbPath string) (*SQLiteStore, error) {
 		return nil, err
 	}
 
-	logger.Info("database initialized", "path", dbPath)
+	logger.Info("database initialized", "path", dbPath, "type", dbType)
 	return store, nil
 }
 
 // initSchema creates the database tables if they don't exist
 func (s *SQLiteStore) initSchema() error {
-	schema := `
-	CREATE TABLE IF NOT EXISTS prompts (
-		id               INTEGER PRIMARY KEY AUTOINCREMENT,
-		slug             TEXT UNIQUE NOT NULL,
-		title            TEXT NOT NULL,
-		description      TEXT,
-		current_version  INTEGER NOT NULL DEFAULT 0,
-		created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
+	var schema string
 
-	CREATE TABLE IF NOT EXISTS prompt_versions (
-		id             INTEGER PRIMARY KEY AUTOINCREMENT,
-		prompt_id      INTEGER NOT NULL,
-		version_number INTEGER NOT NULL,
-		content        TEXT NOT NULL,
-		created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY(prompt_id) REFERENCES prompts(id),
-		UNIQUE(prompt_id, version_number)
-	);
-	`
+	if s.dbType == "postgres" {
+		schema = `
+		CREATE TABLE IF NOT EXISTS prompts (
+			id               BIGSERIAL PRIMARY KEY,
+			slug             TEXT UNIQUE NOT NULL,
+			title            TEXT NOT NULL,
+			description      TEXT,
+			current_version  INTEGER NOT NULL DEFAULT 0,
+			created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE TABLE IF NOT EXISTS prompt_versions (
+			id             BIGSERIAL PRIMARY KEY,
+			prompt_id      BIGINT NOT NULL,
+			version_number INTEGER NOT NULL,
+			content        TEXT NOT NULL,
+			created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY(prompt_id) REFERENCES prompts(id),
+			UNIQUE(prompt_id, version_number)
+		);
+		`
+	} else {
+		schema = `
+		CREATE TABLE IF NOT EXISTS prompts (
+			id               INTEGER PRIMARY KEY AUTOINCREMENT,
+			slug             TEXT UNIQUE NOT NULL,
+			title            TEXT NOT NULL,
+			description      TEXT,
+			current_version  INTEGER NOT NULL DEFAULT 0,
+			created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE TABLE IF NOT EXISTS prompt_versions (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			prompt_id      INTEGER NOT NULL,
+			version_number INTEGER NOT NULL,
+			content        TEXT NOT NULL,
+			created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY(prompt_id) REFERENCES prompts(id),
+			UNIQUE(prompt_id, version_number)
+		);
+		`
+	}
 
 	if _, err := s.db.Exec(schema); err != nil {
 		s.logger.Error("failed to initialize schema", "error", err)
@@ -131,12 +191,13 @@ func (s *SQLiteStore) CreatePrompt(input models.CreatePromptInput) (models.Promp
 
 	// Insert prompt
 	promptResult, err := tx.Exec(
-		`INSERT INTO prompts (slug, title, description, current_version) VALUES (?, ?, ?, 1)`,
+		s.p(`INSERT INTO prompts (slug, title, description, current_version) VALUES (?, ?, ?, 1)`),
 		slug, input.Title, input.Description,
 	)
 	if err != nil {
 		s.logger.Error("failed to insert prompt", "error", err, "slug", slug)
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+		errStr := err.Error()
+		if strings.Contains(errStr, "UNIQUE constraint") || strings.Contains(errStr, "duplicate key") {
 			return result, fmt.Errorf("prompt with slug %q already exists", slug)
 		}
 		return result, fmt.Errorf("failed to insert prompt: %w", err)
@@ -150,7 +211,7 @@ func (s *SQLiteStore) CreatePrompt(input models.CreatePromptInput) (models.Promp
 
 	// Insert initial version
 	versionResult, err := tx.Exec(
-		`INSERT INTO prompt_versions (prompt_id, version_number, content) VALUES (?, 1, ?)`,
+		s.p(`INSERT INTO prompt_versions (prompt_id, version_number, content) VALUES (?, 1, ?)`),
 		promptID, input.Content,
 	)
 	if err != nil {
@@ -216,7 +277,7 @@ func (s *SQLiteStore) CreatePromptVersion(slug string, input models.CreatePrompt
 	var title, description string
 	var currentVersion int
 	err = tx.QueryRow(
-		`SELECT id, title, description, current_version FROM prompts WHERE slug = ?`,
+		s.p(`SELECT id, title, description, current_version FROM prompts WHERE slug = ?`),
 		slug,
 	).Scan(&promptID, &title, &description, &currentVersion)
 	if err == sql.ErrNoRows {
@@ -232,7 +293,7 @@ func (s *SQLiteStore) CreatePromptVersion(slug string, input models.CreatePrompt
 
 	// Insert new version
 	versionResult, err := tx.Exec(
-		`INSERT INTO prompt_versions (prompt_id, version_number, content) VALUES (?, ?, ?)`,
+		s.p(`INSERT INTO prompt_versions (prompt_id, version_number, content) VALUES (?, ?, ?)`),
 		promptID, newVersionNumber, input.Content,
 	)
 	if err != nil {
@@ -248,7 +309,7 @@ func (s *SQLiteStore) CreatePromptVersion(slug string, input models.CreatePrompt
 
 	// Update prompt's current_version and updated_at
 	_, err = tx.Exec(
-		`UPDATE prompts SET current_version = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		s.p(`UPDATE prompts SET current_version = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`),
 		newVersionNumber, promptID,
 	)
 	if err != nil {
@@ -291,14 +352,14 @@ func (s *SQLiteStore) GetPromptBySlug(slug string) (models.PromptWithCurrentVers
 	var result models.PromptWithCurrentVersion
 
 	// Get prompt with current version in a single query
-	err := s.db.QueryRow(`
+	err := s.db.QueryRow(s.p(`
 		SELECT
 			p.slug, p.title, p.description,
 			pv.id, pv.prompt_id, pv.version_number, pv.content, pv.created_at
 		FROM prompts p
 		JOIN prompt_versions pv ON p.id = pv.prompt_id AND pv.version_number = p.current_version
 		WHERE p.slug = ?
-	`, slug).Scan(
+	`), slug).Scan(
 		&result.Slug, &result.Title, &result.Description,
 		&result.CurrentVersion.ID, &result.CurrentVersion.PromptID,
 		&result.CurrentVersion.VersionNumber, &result.CurrentVersion.Content,
@@ -327,12 +388,12 @@ func (s *SQLiteStore) GetPromptVersion(slug string, version int) (models.PromptV
 	start := time.Now()
 	var result models.PromptVersion
 
-	err := s.db.QueryRow(`
+	err := s.db.QueryRow(s.p(`
 		SELECT pv.id, pv.prompt_id, pv.version_number, pv.content, pv.created_at
 		FROM prompt_versions pv
 		JOIN prompts p ON p.id = pv.prompt_id
 		WHERE p.slug = ? AND pv.version_number = ?
-	`, slug, version).Scan(
+	`), slug, version).Scan(
 		&result.ID, &result.PromptID, &result.VersionNumber,
 		&result.Content, &result.CreatedAt,
 	)
@@ -358,12 +419,12 @@ func (s *SQLiteStore) GetPromptVersion(slug string, version int) (models.PromptV
 // ListPrompts retrieves prompts ordered by created_at DESC
 func (s *SQLiteStore) ListPrompts(limit, offset int) ([]models.PromptSummary, error) {
 	start := time.Now()
-	rows, err := s.db.Query(`
+	rows, err := s.db.Query(s.p(`
 		SELECT slug, title, description, current_version, created_at, updated_at
 		FROM prompts
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
-	`, limit, offset)
+	`), limit, offset)
 	if err != nil {
 		s.logger.Error("failed to list prompts", "error", err)
 		return nil, fmt.Errorf("failed to list prompts: %w", err)
@@ -410,7 +471,7 @@ func (s *SQLiteStore) ListPromptVersions(slug string) ([]models.PromptVersion, e
 	start := time.Now()
 	// First verify the prompt exists
 	var promptID int64
-	err := s.db.QueryRow(`SELECT id FROM prompts WHERE slug = ?`, slug).Scan(&promptID)
+	err := s.db.QueryRow(s.p(`SELECT id FROM prompts WHERE slug = ?`), slug).Scan(&promptID)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("prompt with slug %q not found", slug)
 	}
@@ -420,12 +481,12 @@ func (s *SQLiteStore) ListPromptVersions(slug string) ([]models.PromptVersion, e
 	}
 
 	// Get all versions
-	rows, err := s.db.Query(`
+	rows, err := s.db.Query(s.p(`
 		SELECT id, prompt_id, version_number, content, created_at
 		FROM prompt_versions
 		WHERE prompt_id = ?
 		ORDER BY version_number ASC
-	`, promptID)
+	`), promptID)
 	if err != nil {
 		s.logger.Error("failed to list versions", "error", err, "slug", slug)
 		return nil, fmt.Errorf("failed to list versions: %w", err)

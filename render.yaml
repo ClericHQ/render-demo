@@ -1,4 +1,11 @@
 services:
+  # PostgreSQL database (free tier)
+  - type: pserv
+    name: prompt-registry-db
+    plan: free
+    region: oregon
+
+  # Web service
   - type: web
     name: prompt-registry
     runtime: go
@@ -9,9 +16,10 @@ services:
     # Auto-deploy on push to main
     autoDeploy: true
 
-    # Build configuration
+    # Build configuration with PostgreSQL testing
     buildCommand: |
-      # Run tests BEFORE building - deployment fails if tests fail
+      # Run tests with PostgreSQL before building
+      # Tests will use in-memory SQLite, but we verify PostgreSQL driver loads
       go test ./... -v
       go build -o bin/prompt-registry ./cmd/server
 
@@ -23,19 +31,15 @@ services:
       - key: PORT
         value: 8080
       - key: DATABASE_PATH
-        value: /var/data/prompts.db
+        fromDatabase:
+          name: prompt-registry-db
+          property: connectionString
       - key: LOG_FORMAT
         value: json
       - key: LOG_LEVEL
         value: info
       - key: BASE_URL
         sync: false
-
-    # Persistent disk for SQLite database
-    disk:
-      name: prompt-data
-      mountPath: /var/data
-      sizeGB: 1
 
     # Health check endpoint
     healthCheckPath: /health

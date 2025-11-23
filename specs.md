@@ -126,6 +126,12 @@ type CreatePromptVersionInput struct {
 
 ### 1.2 Store Interface (for tests)
 
+**Database Support:**
+- SQLite for local development and tests (`:memory:` for tests, `./data/prompts.db` for local)
+- PostgreSQL for production (Render provides free tier PostgreSQL)
+- Store layer automatically detects database type from connection string
+- Uses parameterized queries compatible with both databases
+
 In tests, assume the following interface in `backend/store`:
 
 ```go
@@ -590,11 +596,18 @@ Test: Open http://localhost:8080, create prompt, verify URL changes, share direc
 
 ### 7.1 render.yaml Configuration
 
-Create `render.yaml` in project root for automated Render deployment.
+Create `render.yaml` in project root for automated Render deployment with PostgreSQL database.
 
 **Service Configuration:**
 ```yaml
 services:
+  # PostgreSQL database (free tier)
+  - type: pserv
+    name: prompt-registry-db
+    plan: free
+    region: oregon
+
+  # Web service
   - type: web
     name: prompt-registry
     runtime: go
@@ -623,21 +636,15 @@ envVars:
   - key: PORT
     value: 8080
   - key: DATABASE_PATH
-    value: /var/data/prompts.db
+    fromDatabase:
+      name: prompt-registry-db
+      property: connectionString
   - key: LOG_FORMAT
     value: json
   - key: LOG_LEVEL
     value: info
   - key: BASE_URL
     sync: false  # Set via Render dashboard
-```
-
-**Persistent Disk:**
-```yaml
-disk:
-  name: prompt-data
-  mountPath: /var/data
-  sizeGB: 1
 ```
 
 **Health Check:**
@@ -662,11 +669,12 @@ numInstances: 1
 - Health check verifies database connectivity via `store.GetStats()`
 - Failing health check prevents deployment from going live
 
-**Persistent Storage:**
-- SQLite database stored on persistent disk at `/var/data/prompts.db`
-- 1GB disk mounted at `/var/data`
+**Database:**
+- PostgreSQL database (Render free tier includes PostgreSQL)
+- Connection string automatically injected as `DATABASE_PATH`
 - Data persists across deployments and restarts
-- Database directory created automatically by application
+- Schema created automatically by application on first run
+- SQLite used for local development and testing (faster, simpler)
 
 **Logging:**
 - Production uses JSON format (`LOG_FORMAT=json`)
