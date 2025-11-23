@@ -1,5 +1,5 @@
 module github.com/shahram/prompt-registry
 
-go 1.23
+go 1.25.0
 
 require github.com/mattn/go-sqlite3 v1.14.32
