@@ -1,14 +1,7 @@
 services:
-  # PostgreSQL database (free tier)
-  - type: pserv
-    name: prompt-registry-db
-    plan: free
-    region: oregon
-
   # Web service
   - type: web
     name: prompt-registry
-    env: go
     plan: free
     region: oregon
     branch: main
@@ -46,3 +39,8 @@ services:
 
     # Resource allocation (free tier)
     numInstances: 1
+
+databases:
+  - name: prompt-registry-db
+    plan: free
+    region: oregon
