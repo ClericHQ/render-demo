@@ -2,6 +2,7 @@ services:
   # Web service
   - type: web
     name: prompt-registry
+    runtime: docker
     plan: free
     region: oregon
     branch: main
@@ -9,15 +10,8 @@ services:
     # Auto-deploy on push to main
     autoDeploy: true
 
-    # Build configuration with PostgreSQL testing
-    buildCommand: |
-      # Run tests with PostgreSQL before building
-      # Tests will use in-memory SQLite, but we verify PostgreSQL driver loads
-      go test ./... -v
-      go build -o bin/prompt-registry ./cmd/server
-
-    # Start command
-    startCommand: ./bin/prompt-registry
+    # Docker command (build and start happen via Dockerfile)
+    dockerfilePath: ./Dockerfile
 
     # Environment variables
     envVars:
