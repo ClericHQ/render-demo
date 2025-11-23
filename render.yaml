@@ -2,7 +2,6 @@ services:
   # Web service
   - type: web
     name: prompt-registry
-    runtime: docker
     plan: free
     region: oregon
     branch: main
@@ -10,8 +9,13 @@ services:
     # Auto-deploy on push to main
     autoDeploy: true
 
-    # Docker command (build and start happen via Dockerfile)
-    dockerfilePath: ./Dockerfile
+    # Build configuration with testing
+    buildCommand: |
+      go test ./... -v
+      go build -o bin/prompt-registry ./cmd/server
+
+    # Start command
+    startCommand: ./bin/prompt-registry
 
     # Environment variables
     envVars:
@@ -36,5 +40,3 @@ services:
 
 databases:
   - name: prompt-registry-db
-    plan: free
-    region: oregon
