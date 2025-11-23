@@ -9,10 +9,15 @@
 <body class="bg-gray-50 text-gray-900 antialiased">
     <!-- Navigation -->
     <nav class="bg-white border-b border-gray-200">
-        <div class="max-w-6xl mx-auto px-6 py-4">
-            <button onclick="navigate('/')" class="text-base font-semibold text-gray-900 hover:text-gray-600 transition-colors">
-                Prompt Registry
-            </button>
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-baseline gap-2">
+                <button onclick="navigate('/')" class="text-base font-semibold text-gray-900 hover:text-gray-600 transition-colors">
+                    Prompt Registry
+                </button>
+                <span class="text-xs text-gray-500">
+                    demo by <a href="https://cleric.ai" target="_blank" rel="noopener noreferrer" class="hover:text-gray-700 hover:underline">Cleric</a>
+                </span>
+            </div>
         </div>
     </nav>
 
@@ -184,12 +189,12 @@
 
         // Router
         function getRoute() {
-            const path = window.location.hash.slice(1) || '/';
-            return path;
+            return window.location.pathname;
         }
 
         function navigate(path) {
-            window.location.hash = path;
+            window.history.pushState(null, '', path);
+            handleRoute();
         }
 
         function handleRoute() {
@@ -209,7 +214,7 @@
             }
         }
 
-        window.addEventListener('hashchange', handleRoute);
+        window.addEventListener('popstate', handleRoute);
         window.addEventListener('load', handleRoute);
 
         // Utilities
