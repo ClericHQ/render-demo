@@ -133,7 +133,7 @@ func (s *SQLiteStore) CreatePrompt(input models.CreatePromptInput) (models.Promp
 
 	// Insert prompt
 	promptResult, err := tx.Exec(
-		`INSERT INTO prompts (slug, title, description, current_version) VALUES (?, ?, ?, 1)`,
+		`INSERT INTO prompts (slug, title, description, current_version) VALUES (?, ?, ?, 0)`,
 		slug, input.Title, input.Description,
 	)
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *SQLiteStore) CreatePrompt(input models.CreatePromptInput) (models.Promp
 
 	// Insert initial version
 	versionResult, err := tx.Exec(
-		`INSERT INTO prompt_versions (prompt_id, version_number, content) VALUES (?, 1, ?)`,
+		`INSERT INTO prompt_versions (prompt_id, version_number, content) VALUES (?, 0, ?)`,
 		promptID, input.Content,
 	)
 	if err != nil {
