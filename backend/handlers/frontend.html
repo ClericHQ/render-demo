@@ -71,16 +71,9 @@
                 </div>
 
                 <!-- Content -->
-                <div class="flex-1 flex overflow-hidden bg-white">
-                    <!-- Main Content -->
-                    <div class="flex-1 flex flex-col max-w-4xl mx-auto w-full p-8">
-                        <textarea id="createContent" placeholder="Write your prompt here..."
-                            class="flex-1 text-base border-0 focus:outline-none focus:ring-0 resize-none font-mono text-gray-900 placeholder-gray-400"
-                            autofocus></textarea>
-                    </div>
-
-                    <!-- Metadata Sidebar -->
-                    <div class="w-72 border-l border-gray-100 bg-gray-50/50 p-6 space-y-4">
+                <div class="flex-1 flex flex-col-reverse md:flex-row overflow-hidden bg-white">
+                    <!-- Metadata Sidebar (mobile: bottom, desktop: right) -->
+                    <div class="md:order-2 md:w-72 border-t md:border-t-0 md:border-l border-gray-100 bg-gray-50/50 p-4 md:p-6 space-y-4">
                         <div>
                             <label class="block text-xs font-medium text-gray-700 mb-1.5">Title</label>
                             <input type="text" id="createTitle" required
@@ -99,6 +92,13 @@
                             <p class="text-xs text-gray-500 mt-1.5">Optional</p>
                         </div>
                         <div id="createError" class="text-xs text-red-600 hidden"></div>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div class="md:order-1 flex-1 flex flex-col max-w-4xl mx-auto w-full p-4 md:p-8">
+                        <textarea id="createContent" placeholder="Write your prompt here..."
+                            class="flex-1 text-sm md:text-base border-0 focus:outline-none focus:ring-0 resize-none font-mono text-gray-900 placeholder-gray-400"
+                            autofocus></textarea>
                     </div>
                 </div>
             </div>
@@ -129,28 +129,36 @@
                 </div>
 
                 <!-- Content -->
-                <div class="flex-1 flex overflow-hidden bg-white">
+                <div class="flex-1 flex flex-col md:flex-row overflow-hidden bg-white">
+                    <!-- Versions Sidebar (mobile: top, desktop: right) -->
+                    <div class="md:order-2 md:w-56 border-b md:border-b-0 md:border-l border-gray-100 bg-gray-50/50">
+                        <div class="px-4 py-3 border-b border-gray-100">
+                            <h3 class="text-xs font-medium text-gray-700">Versions</h3>
+                        </div>
+                        <div id="detailVersionsList" class="overflow-auto max-h-48 md:max-h-[calc(100vh-180px)]"></div>
+                    </div>
+
                     <!-- Main Content -->
-                    <div class="flex-1 flex flex-col">
+                    <div class="md:order-1 flex-1 flex flex-col">
                         <!-- View Mode -->
-                        <div id="detailViewMode" class="flex-1 max-w-4xl mx-auto w-full p-8 overflow-auto">
+                        <div id="detailViewMode" class="flex-1 max-w-4xl mx-auto w-full p-4 md:p-8 overflow-auto">
                             <div class="mb-3">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                                     Version <span id="detailVersion" class="ml-1"></span>
                                 </span>
                             </div>
-                            <pre id="detailContent" class="text-base text-gray-900 whitespace-pre-wrap font-mono leading-relaxed"></pre>
+                            <pre id="detailContent" class="text-sm md:text-base text-gray-900 whitespace-pre-wrap font-mono leading-relaxed"></pre>
                         </div>
 
                         <!-- Edit Mode -->
                         <div id="detailEditMode" class="hidden flex-1 flex flex-col">
-                            <div class="flex-1 max-w-4xl mx-auto w-full p-8">
+                            <div class="flex-1 max-w-4xl mx-auto w-full p-4 md:p-8">
                                 <textarea id="editContent"
-                                    class="w-full h-full text-base border-0 focus:outline-none focus:ring-0 resize-none font-mono leading-relaxed text-gray-900"></textarea>
+                                    class="w-full h-full text-sm md:text-base border-0 focus:outline-none focus:ring-0 resize-none font-mono leading-relaxed text-gray-900"></textarea>
                             </div>
 
                             <!-- Diff Preview -->
-                            <div class="border-t border-gray-100 bg-gray-50/50 px-8 py-4">
+                            <div class="border-t border-gray-100 bg-gray-50/50 px-4 md:px-8 py-4">
                                 <div class="max-w-4xl mx-auto">
                                     <div class="mb-3 flex items-center justify-between">
                                         <h3 class="text-xs font-medium text-gray-700">Changes</h3>
@@ -167,14 +175,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Versions Sidebar -->
-                    <div class="w-56 border-l border-gray-100 bg-gray-50/50">
-                        <div class="px-4 py-3 border-b border-gray-100">
-                            <h3 class="text-xs font-medium text-gray-700">Versions</h3>
-                        </div>
-                        <div id="detailVersionsList" class="overflow-auto" style="max-height: calc(100vh - 180px)"></div>
                     </div>
                 </div>
             </div>
