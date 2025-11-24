@@ -11,9 +11,7 @@ services:
     autoDeploy: true
 
     # Build configuration with testing
-    buildCommand: |
-      go test ./... -v
-      go build -o bin/prompt-registry ./cmd/server
+    buildCommand: go test -v ./... && go build -o bin/prompt-registry ./cmd/server
 
     # Start command
     startCommand: ./bin/prompt-registry
