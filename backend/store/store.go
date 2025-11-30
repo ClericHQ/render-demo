@@ -116,7 +116,9 @@ func (s *SQLiteStore) CreatePrompt(input models.CreatePromptInput) (models.Promp
 	if strings.TrimSpace(input.Content) == "" {
 		return result, errors.New("content cannot be empty")
 	}
-
+	if input.Description != "" && len(strings.TrimSpace(input.Description)) < 10 {
+		return result, errors.New("description must be at least 10 characters when provided")
+	}
 	// Generate slug if not provided
 	slug := input.Slug
 	if slug == "" {
